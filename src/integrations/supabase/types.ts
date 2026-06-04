@@ -135,6 +135,10 @@ export type Database = {
         Args: { _conv_id: string; _user_id: string }
         Returns: boolean
       }
+      start_direct_conversation: {
+        Args: { _other_user: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
