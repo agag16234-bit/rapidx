@@ -131,6 +131,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_conversation_creator: {
+        Args: { _conv_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_conversation_member: {
         Args: { _conv_id: string; _user_id: string }
         Returns: boolean
