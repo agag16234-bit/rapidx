@@ -237,29 +237,10 @@ function NewChatDialog({ userId, onCreated }: { userId: string; onCreated: (id: 
   });
 
   const startChat = async (otherId: string) => {
-    // find existing 1:1
-    const { data: mine } = await supabase.from("conversation_members").select("conversation_id").eq("user_id", userId);
-    const { data: theirs } = await supabase.from("conversation_members").select("conversation_id").eq("user_id", otherId);
-    const mineIds = new Set((mine ?? []).map((m) => m.conversation_id));
-    const shared = (theirs ?? []).map((m) => m.conversation_id).filter((id) => mineIds.has(id));
-    if (shared.length) {
-      const { data: existing } = await supabase.from("conversations").select("*").in("id", shared).eq("is_group", false).limit(1);
-      if (existing && existing.length) {
-        onCreated(existing[0].id);
-        setOpen(false);
-        return;
-      }
-    }
-    const { data: conv, error } = await supabase
-      .from("conversations").insert({ is_group: false, created_by: userId }).select().single();
-    if (error || !conv) { toast.error("Could not start chat"); return; }
-    const { error: mErr } = await supabase.from("conversation_members").insert([
-      { conversation_id: conv.id, user_id: userId },
-      { conversation_id: conv.id, user_id: otherId },
-    ]);
-    if (mErr) { toast.error(mErr.message); return; }
+    const { data, error } = await supabase.rpc("start_direct_conversation", { _other_user: otherId });
+    if (error || !data) { toast.error(error?.message ?? "Could not start chat"); return; }
     qc.invalidateQueries({ queryKey: ["conversations", userId] });
-    onCreated(conv.id);
+    onCreated(data as string);
     setOpen(false);
   };
 
