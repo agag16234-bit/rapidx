@@ -19,6 +19,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,11 +33,16 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        const handle = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+        if (handle && handle.length < 3) throw new Error("Username must be at least 3 characters");
         const { error } = await supabase.auth.signUp({
           email, password,
           options: {
             emailRedirectTo: `${window.location.origin}/chats`,
-            data: { display_name: name || email.split("@")[0] },
+            data: {
+              display_name: name || email.split("@")[0],
+              username: handle || undefined,
+            },
           },
         });
         if (error) throw error;
@@ -85,10 +91,19 @@ function AuthPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Display name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Display name</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="un">Username</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">@</span>
+                    <Input id="un" className="pl-7" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="janedoe" maxLength={24} />
+                  </div>
+                </div>
+              </>
             )}
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
