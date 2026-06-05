@@ -1,39 +1,78 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { formatDistanceToNowStrict } from "date-fns";
-import { MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users, Paperclip,
+  Smile, Check, CheckCheck, Sun, Moon, UserCog, X,
+} from "lucide-react";
+import { AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from "@/components/ui/dialog";
+import { useTheme } from "@/components/theme-provider";
+import { ProfileSheet } from "@/components/messenger/ProfileSheet";
+import { UserAvatar, MediaImage, MediaVideo, MediaAudio, MediaFile } from "@/components/messenger/Media";
+import { uploadToBucket, detectMediaType } from "@/lib/storage";
 
-type Profile = { id: string; display_name: string; avatar_url: string | null; status: string | null };
-type ConversationRow = {
-  id: string; is_group: boolean; name: string | null; last_message_at: string;
+type Profile = {
+  id: string; display_name: string; username: string | null; avatar_url: string | null;
+  status: string | null; bio: string | null; last_seen: string | null; show_last_seen: boolean | null;
 };
+type ConversationRow = { id: string; is_group: boolean; name: string | null; last_message_at: string };
 type ConversationListItem = ConversationRow & {
-  other: Profile | null;
-  members: Profile[];
-  last_message?: { content: string; sender_id: string } | null;
+  other: Profile | null; members: Profile[]; last_message?: Message | null; unread: number;
 };
-type Message = { id: string; conversation_id: string; sender_id: string; content: string; created_at: string };
+type Message = {
+  id: string; conversation_id: string; sender_id: string; content: string; created_at: string;
+  media_url: string | null; media_type: string | null; media_name: string | null;
+  media_mime: string | null; media_size: number | null;
+};
+type Reaction = { id: string; message_id: string; user_id: string; emoji: string };
+
+const REACTIONS = ["❤️", "👍", "😂", "😮", "😢"];
 
 export function Messenger({ user }: { user: User }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobileShowList, setMobileShowList] = useState(true);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  // Global presence channel
+  useEffect(() => {
+    const channel = supabase.channel("online-presence", { config: { presence: { key: user.id } } });
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      const ids = new Set(Object.keys(state));
+      setOnlineUserIds(ids);
+    });
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ online_at: new Date().toISOString() });
+      }
+    });
+
+    // Heartbeat last_seen every 60s
+    const heartbeat = setInterval(() => {
+      supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", user.id);
+    }, 60_000);
+    supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", user.id);
+
+    return () => { clearInterval(heartbeat); supabase.removeChannel(channel); };
+  }, [user.id]);
 
   return (
     <div className="flex h-[100dvh] bg-background text-foreground">
       <aside className={`${mobileShowList ? "flex" : "hidden"} md:flex w-full md:w-[360px] flex-col border-r bg-sidebar`}>
         <ChatList
-          userId={user.id}
+          user={user}
           activeId={activeId}
+          onlineUserIds={onlineUserIds}
           onSelect={(id) => { setActiveId(id); setMobileShowList(false); }}
         />
       </aside>
@@ -42,6 +81,7 @@ export function Messenger({ user }: { user: User }) {
           <ChatView
             conversationId={activeId}
             user={user}
+            onlineUserIds={onlineUserIds}
             onBack={() => setMobileShowList(true)}
           />
         ) : (
@@ -69,10 +109,13 @@ function EmptyState() {
 /* --------------------------------- LIST --------------------------------- */
 
 function ChatList({
-  userId, activeId, onSelect,
-}: { userId: string; activeId: string | null; onSelect: (id: string) => void }) {
+  user, activeId, onlineUserIds, onSelect,
+}: { user: User; activeId: string | null; onlineUserIds: Set<string>; onSelect: (id: string) => void }) {
   const queryClient = useQueryClient();
+  const { theme, toggle } = useTheme();
   const [q, setQ] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const userId = user.id;
 
   const { data: me } = useQuery({
     queryKey: ["me", userId],
@@ -86,9 +129,10 @@ function ChatList({
     queryKey: ["conversations", userId],
     queryFn: async () => {
       const { data: memberRows } = await supabase
-        .from("conversation_members").select("conversation_id").eq("user_id", userId);
+        .from("conversation_members").select("conversation_id,last_read_at").eq("user_id", userId);
       const ids = (memberRows ?? []).map((r) => r.conversation_id);
       if (!ids.length) return [] as ConversationListItem[];
+      const lastReadMap = new Map((memberRows ?? []).map((r) => [r.conversation_id, r.last_read_at]));
 
       const { data: convs } = await supabase
         .from("conversations").select("*").in("id", ids).order("last_message_at", { ascending: false });
@@ -102,11 +146,15 @@ function ChatList({
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
 
       const { data: lastMsgs } = await supabase
-        .from("messages").select("conversation_id,content,sender_id,created_at")
-        .in("conversation_id", ids).order("created_at", { ascending: false });
-      const lastMap = new Map<string, { content: string; sender_id: string }>();
-      for (const m of lastMsgs ?? []) {
-        if (!lastMap.has(m.conversation_id)) lastMap.set(m.conversation_id, { content: m.content, sender_id: m.sender_id });
+        .from("messages").select("*").in("conversation_id", ids).order("created_at", { ascending: false });
+      const lastMap = new Map<string, Message>();
+      const unreadMap = new Map<string, number>();
+      for (const m of (lastMsgs ?? []) as Message[]) {
+        if (!lastMap.has(m.conversation_id)) lastMap.set(m.conversation_id, m);
+        const lr = lastReadMap.get(m.conversation_id) ?? "1970-01-01T00:00:00Z";
+        if (m.sender_id !== userId && new Date(m.created_at) > new Date(lr)) {
+          unreadMap.set(m.conversation_id, (unreadMap.get(m.conversation_id) ?? 0) + 1);
+        }
       }
 
       return (convs ?? []).map((c) => {
@@ -115,7 +163,13 @@ function ChatList({
           .map((m) => profileMap.get(m.user_id))
           .filter(Boolean) as Profile[];
         const other = c.is_group ? null : members.find((p) => p.id !== userId) ?? null;
-        return { ...c, members, other, last_message: lastMap.get(c.id) ?? null } as ConversationListItem;
+        return {
+          ...c,
+          members,
+          other,
+          last_message: lastMap.get(c.id) ?? null,
+          unread: unreadMap.get(c.id) ?? 0,
+        } as ConversationListItem;
       });
     },
   });
@@ -129,37 +183,44 @@ function ChatList({
       .on("postgres_changes", { event: "*", schema: "public", table: "conversation_members" }, () => {
         queryClient.invalidateQueries({ queryKey: ["conversations", userId] });
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["conversations", userId] });
+        queryClient.invalidateQueries({ queryKey: ["me", userId] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, userId]);
 
   const filtered = conversations.filter((c) => {
     const label = c.is_group ? c.name ?? "Group" : c.other?.display_name ?? "";
-    return label.toLowerCase().includes(q.toLowerCase());
+    const handle = c.other?.username ?? "";
+    return label.toLowerCase().includes(q.toLowerCase()) || handle.toLowerCase().includes(q.toLowerCase());
   });
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await queryClient.cancelQueries();
     queryClient.clear();
+    await supabase.auth.signOut();
   };
 
   return (
     <>
       <div className="flex items-center justify-between border-b px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          <Avatar className="h-10 w-10 ring-2 ring-primary/20">
-            <AvatarImage src={me?.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-gradient-primary text-white">
-              {(me?.display_name ?? "U").charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
+        <button onClick={() => setProfileOpen(true)} className="flex items-center gap-2.5 rounded-xl p-1 hover:bg-sidebar-accent">
+          <UserAvatar path={me?.avatar_url} name={me?.display_name ?? "U"} className="h-10 w-10 ring-2 ring-primary/20" />
+          <div className="text-left">
             <div className="text-sm font-semibold leading-tight">{me?.display_name ?? "You"}</div>
-            <div className="text-xs text-muted-foreground">Online</div>
+            <div className="text-xs text-muted-foreground">@{me?.username ?? "you"}</div>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
+        </button>
+        <div className="flex items-center gap-0.5">
+          <Button size="icon" variant="ghost" onClick={toggle} title="Toggle theme">
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           <NewChatDialog userId={userId} onCreated={(id) => onSelect(id)} />
+          <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile">
+            <UserCog className="h-4 w-4" />
+          </Button>
           <Button size="icon" variant="ghost" onClick={handleSignOut} title="Sign out">
             <LogOut className="h-4 w-4" />
           </Button>
@@ -183,9 +244,9 @@ function ChatList({
           <ul className="space-y-0.5">
             {filtered.map((c) => {
               const title = c.is_group ? c.name ?? "Group chat" : c.other?.display_name ?? "Unknown";
-              const avatar = c.is_group ? null : c.other?.avatar_url;
               const active = c.id === activeId;
-              const preview = c.last_message?.content ?? (c.is_group ? "New group" : "Say hi 👋");
+              const preview = previewText(c.last_message);
+              const isOnline = !c.is_group && c.other ? onlineUserIds.has(c.other.id) : false;
               return (
                 <li key={c.id}>
                   <button
@@ -194,12 +255,18 @@ function ChatList({
                       active ? "bg-primary/10" : "hover:bg-sidebar-accent"
                     }`}
                   >
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={avatar ?? undefined} />
-                      <AvatarFallback className={c.is_group ? "bg-accent text-primary" : "bg-gradient-primary text-white"}>
-                        {c.is_group ? <Users className="h-5 w-5" /> : title.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      {c.is_group ? (
+                        <div className="grid h-12 w-12 place-items-center rounded-full bg-accent text-primary">
+                          <Users className="h-5 w-5" />
+                        </div>
+                      ) : (
+                        <UserAvatar path={c.other?.avatar_url} name={title} className="h-12 w-12" />
+                      )}
+                      {isOnline && (
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-sidebar bg-emerald-500" />
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="truncate text-sm font-semibold">{title}</span>
@@ -207,7 +274,14 @@ function ChatList({
                           {formatDistanceToNowStrict(new Date(c.last_message_at), { addSuffix: false })}
                         </span>
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">{preview}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-xs text-muted-foreground">{preview}</p>
+                        {c.unread > 0 && (
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                            {c.unread > 99 ? "99+" : c.unread}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 </li>
@@ -216,8 +290,19 @@ function ChatList({
           </ul>
         )}
       </ScrollArea>
+
+      <ProfileSheet user={user} open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   );
+}
+
+function previewText(m: Message | null | undefined): string {
+  if (!m) return "Say hi 👋";
+  if (m.media_type === "image") return "📷 Photo";
+  if (m.media_type === "video") return "🎬 Video";
+  if (m.media_type === "audio") return "🎙 Audio";
+  if (m.media_type === "file") return `📎 ${m.media_name ?? "File"}`;
+  return m.content || "…";
 }
 
 /* ----------------------------- NEW CHAT DIALOG ---------------------------- */
@@ -244,7 +329,10 @@ function NewChatDialog({ userId, onCreated }: { userId: string; onCreated: (id: 
     setOpen(false);
   };
 
-  const filtered = people.filter((p) => p.display_name.toLowerCase().includes(q.toLowerCase()));
+  const filtered = people.filter((p) => {
+    const s = q.toLowerCase().replace(/^@/, "");
+    return p.display_name.toLowerCase().includes(s) || (p.username ?? "").toLowerCase().includes(s);
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -256,26 +344,21 @@ function NewChatDialog({ userId, onCreated }: { userId: string; onCreated: (id: 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Start a new conversation</DialogTitle>
-          <DialogDescription>Pick someone to chat with.</DialogDescription>
+          <DialogDescription>Search by name or @username.</DialogDescription>
         </DialogHeader>
         <Input placeholder="Search people…" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="max-h-80 overflow-y-auto scrollbar-thin">
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No other users yet. Invite a friend!</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No people found.</p>
           ) : (
             <ul className="space-y-1">
               {filtered.map((p) => (
                 <li key={p.id}>
                   <button onClick={() => startChat(p.id)} className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-accent">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={p.avatar_url ?? undefined} />
-                      <AvatarFallback className="bg-gradient-primary text-white">
-                        {p.display_name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar path={p.avatar_url} name={p.display_name} className="h-10 w-10" />
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{p.display_name}</div>
-                      <div className="truncate text-xs text-muted-foreground">{p.status ?? "Available"}</div>
+                      <div className="truncate text-xs text-muted-foreground">@{p.username ?? "user"}</div>
                     </div>
                   </button>
                 </li>
@@ -290,25 +373,29 @@ function NewChatDialog({ userId, onCreated }: { userId: string; onCreated: (id: 
 
 /* ---------------------------------- VIEW ---------------------------------- */
 
-function ChatView({ conversationId, user, onBack }: { conversationId: string; user: User; onBack: () => void }) {
+function ChatView({
+  conversationId, user, onlineUserIds, onBack,
+}: { conversationId: string; user: User; onlineUserIds: Set<string>; onBack: () => void }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
+  const [otherLastRead, setOtherLastRead] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const lastTypingSentRef = useRef(0);
 
   const { data: header } = useQuery({
     queryKey: ["conv-header", conversationId, user.id],
     queryFn: async () => {
       const { data: conv } = await supabase.from("conversations").select("*").eq("id", conversationId).maybeSingle();
-      const { data: members } = await supabase.from("conversation_members").select("user_id").eq("conversation_id", conversationId);
+      const { data: members } = await supabase.from("conversation_members").select("user_id,last_read_at").eq("conversation_id", conversationId);
       const otherIds = (members ?? []).map((m) => m.user_id).filter((id) => id !== user.id);
       const { data: profs } = await supabase.from("profiles").select("*").in("id", otherIds.length ? otherIds : ["00000000-0000-0000-0000-000000000000"]);
       const other = (profs ?? [])[0] as Profile | undefined;
-      return {
-        title: conv?.is_group ? conv?.name ?? "Group" : other?.display_name ?? "Chat",
-        subtitle: conv?.is_group ? `${(members ?? []).length} members` : other?.status ?? "Available",
-        avatar: conv?.is_group ? null : other?.avatar_url ?? null,
-        is_group: !!conv?.is_group,
-      };
+      return { conv, members: members ?? [], other, otherIds };
     },
   });
 
@@ -320,11 +407,40 @@ function ChatView({ conversationId, user, onBack }: { conversationId: string; us
     },
   });
 
+  const { data: reactions = [] } = useQuery({
+    queryKey: ["reactions", conversationId],
+    queryFn: async () => {
+      const { data } = await supabase.from("message_reactions").select("*").eq("conversation_id", conversationId);
+      return (data ?? []) as Reaction[];
+    },
+  });
+
+  const reactionsByMsg = useMemo(() => {
+    const map = new Map<string, Reaction[]>();
+    for (const r of reactions) {
+      const arr = map.get(r.message_id) ?? [];
+      arr.push(r);
+      map.set(r.message_id, arr);
+    }
+    return map;
+  }, [reactions]);
+
+  // Compute other member's last_read_at (for read receipts on own messages)
   useEffect(() => {
-    const channel = supabase
-      .channel(`messages-${conversationId}`)
-      .on(
-        "postgres_changes",
+    if (!header) return;
+    const lr = header.members
+      .filter((m) => m.user_id !== user.id)
+      .map((m) => new Date(m.last_read_at));
+    if (!lr.length) { setOtherLastRead(null); return; }
+    setOtherLastRead(new Date(Math.max(...lr.map((d) => d.getTime()))));
+  }, [header, user.id]);
+
+  // Realtime: messages, reactions, member updates (for read receipts), typing broadcast
+  useEffect(() => {
+    const channel = supabase.channel(`conv-${conversationId}`, { config: { broadcast: { self: false } } });
+
+    channel
+      .on("postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const msg = payload.new as Message;
@@ -333,15 +449,43 @@ function ChatView({ conversationId, user, onBack }: { conversationId: string; us
             return [...old, msg];
           });
           qc.invalidateQueries({ queryKey: ["conversations", user.id] });
+          // If chat is open and message is from other, mark read
+          if (msg.sender_id !== user.id) {
+            markAsRead(conversationId, user.id);
+          }
         },
       )
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "message_reactions", filter: `conversation_id=eq.${conversationId}` },
+        () => { qc.invalidateQueries({ queryKey: ["reactions", conversationId] }); },
+      )
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversationId}` },
+        () => { qc.invalidateQueries({ queryKey: ["conv-header", conversationId, user.id] }); },
+      )
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        const senderId = payload?.user_id as string | undefined;
+        if (!senderId || senderId === user.id) return;
+        setTypingUserIds((prev) => new Set(prev).add(senderId));
+        clearTimeout(typingTimeoutRef.current[senderId]);
+        typingTimeoutRef.current[senderId] = setTimeout(() => {
+          setTypingUserIds((prev) => { const n = new Set(prev); n.delete(senderId); return n; });
+        }, 3000);
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    broadcastChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); broadcastChannelRef.current = null; };
   }, [conversationId, qc, user.id]);
+
+  // Mark read on mount
+  useEffect(() => {
+    markAsRead(conversationId, user.id);
+  }, [conversationId, user.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, typingUserIds.size]);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -354,62 +498,122 @@ function ChatView({ conversationId, user, onBack }: { conversationId: string; us
     if (error) toast.error(error.message);
   };
 
+  const onTextChange = (v: string) => {
+    setText(v);
+    const now = Date.now();
+    if (now - lastTypingSentRef.current > 1500 && broadcastChannelRef.current) {
+      lastTypingSentRef.current = now;
+      broadcastChannelRef.current.send({
+        type: "broadcast", event: "typing", payload: { user_id: user.id },
+      });
+    }
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) { toast.error("File too large (max 25 MB)"); return; }
+    setUploading(true);
+    try {
+      const path = await uploadToBucket("chat-media", file, user.id);
+      const type = detectMediaType(file);
+      const { error } = await supabase.from("messages").insert({
+        conversation_id: conversationId, sender_id: user.id, content: "",
+        media_url: path, media_type: type, media_name: file.name, media_mime: file.type, media_size: file.size,
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error(err.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const otherOnline = header?.other ? onlineUserIds.has(header.other.id) : false;
+  const subtitle = useMemo(() => {
+    if (!header) return "";
+    if (header.conv?.is_group) return `${header.members.length} members`;
+    if (!header.other) return "";
+    if (typingUserIds.has(header.other.id)) return "typing…";
+    if (otherOnline) return "online";
+    if (header.other.show_last_seen !== false && header.other.last_seen) {
+      return `last seen ${formatDistanceToNowStrict(new Date(header.other.last_seen), { addSuffix: true })}`;
+    }
+    return header.other.bio || "Available";
+  }, [header, otherOnline, typingUserIds]);
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b bg-card/80 px-4 py-3 backdrop-blur">
         <Button size="icon" variant="ghost" className="md:hidden" onClick={onBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={header?.avatar ?? undefined} />
-          <AvatarFallback className={header?.is_group ? "bg-accent text-primary" : "bg-gradient-primary text-white"}>
-            {header?.is_group ? <Users className="h-5 w-5" /> : (header?.title ?? "?").charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">{header?.title ?? "Loading…"}</div>
-          <div className="truncate text-xs text-muted-foreground">{header?.subtitle}</div>
+        <div className="relative">
+          {header?.conv?.is_group ? (
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-accent text-primary">
+              <Users className="h-5 w-5" />
+            </div>
+          ) : (
+            <UserAvatar path={header?.other?.avatar_url} name={header?.other?.display_name ?? "?"} className="h-10 w-10" />
+          )}
+          {otherOnline && !header?.conv?.is_group && (
+            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">
+            {header?.conv?.is_group ? header.conv?.name ?? "Group" : header?.other?.display_name ?? "Loading…"}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
         </div>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
         <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
           {messages.length === 0 && (
-            <div className="my-12 text-center text-sm text-muted-foreground">
-              No messages yet. Say hi 👋
-            </div>
+            <div className="my-12 text-center text-sm text-muted-foreground">No messages yet. Say hi 👋</div>
           )}
           {messages.map((m, i) => {
             const mine = m.sender_id === user.id;
             const prev = messages[i - 1];
             const sameAuthorAsPrev = prev && prev.sender_id === m.sender_id;
+            const seen = mine && otherLastRead && otherLastRead >= new Date(m.created_at);
             return (
-              <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"} ${sameAuthorAsPrev ? "mt-0.5" : "mt-3"}`}>
-                <div
-                  className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-bubble ${
-                    mine
-                      ? "rounded-br-md bg-bubble-out text-bubble-out-foreground"
-                      : "rounded-bl-md bg-bubble-in text-bubble-in-foreground"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                  <div className={`mt-0.5 text-[10px] ${mine ? "text-white/70" : "text-muted-foreground"} text-right`}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                </div>
-              </div>
+              <MessageRow
+                key={m.id}
+                msg={m}
+                mine={mine}
+                sameAuthorAsPrev={!!sameAuthorAsPrev}
+                reactions={reactionsByMsg.get(m.id) ?? []}
+                userId={user.id}
+                seen={!!seen}
+              />
             );
           })}
+          {typingUserIds.size > 0 && header?.other && typingUserIds.has(header.other.id) && (
+            <div className="mt-2 flex justify-start">
+              <div className="rounded-2xl rounded-bl-md bg-bubble-in px-3.5 py-2 text-sm shadow-bubble">
+                <TypingDots />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <form onSubmit={send} className="flex items-center gap-2 border-t bg-card/80 px-3 py-3 backdrop-blur">
+        <input ref={fileRef} type="file" className="hidden" onChange={handleFile}
+               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+        <Button type="button" size="icon" variant="ghost" onClick={() => fileRef.current?.click()} disabled={uploading} title="Attach">
+          <Paperclip className="h-5 w-5" />
+        </Button>
         <Input
           autoFocus
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Type a message…"
+          onChange={(e) => onTextChange(e.target.value)}
+          placeholder={uploading ? "Uploading…" : "Type a message…"}
           className="rounded-full border-transparent bg-muted/70 focus-visible:bg-card"
+          disabled={uploading}
         />
         <Button type="submit" size="icon" disabled={!text.trim()} className="h-10 w-10 shrink-0 rounded-full bg-gradient-primary text-white hover:opacity-95">
           <Send className="h-4 w-4" />
@@ -418,3 +622,136 @@ function ChatView({ conversationId, user, onBack }: { conversationId: string; us
     </div>
   );
 }
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
+    </span>
+  );
+}
+
+/* ------------------------------ MESSAGE ROW ------------------------------ */
+
+function MessageRow({
+  msg, mine, sameAuthorAsPrev, reactions, userId, seen,
+}: {
+  msg: Message; mine: boolean; sameAuthorAsPrev: boolean;
+  reactions: Reaction[]; userId: string; seen: boolean;
+}) {
+  const [reactOpen, setReactOpen] = useState(false);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, { count: number; mine: boolean }>();
+    for (const r of reactions) {
+      const cur = m.get(r.emoji) ?? { count: 0, mine: false };
+      cur.count++;
+      if (r.user_id === userId) cur.mine = true;
+      m.set(r.emoji, cur);
+    }
+    return Array.from(m.entries());
+  }, [reactions, userId]);
+
+  const toggleReaction = async (emoji: string) => {
+    setReactOpen(false);
+    const existing = reactions.find((r) => r.user_id === userId && r.emoji === emoji);
+    if (existing) {
+      await supabase.from("message_reactions").delete().eq("id", existing.id);
+    } else {
+      // Remove previous reaction by user (single reaction per user per message UX)
+      const prior = reactions.find((r) => r.user_id === userId);
+      if (prior) await supabase.from("message_reactions").delete().eq("id", prior.id);
+      await supabase.from("message_reactions").insert({
+        message_id: msg.id, conversation_id: msg.conversation_id, user_id: userId, emoji,
+      });
+    }
+  };
+
+  return (
+    <div className={`group flex ${mine ? "justify-end" : "justify-start"} ${sameAuthorAsPrev ? "mt-0.5" : "mt-3"}`}>
+      <div className={`flex items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+        <div
+          className={`relative max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-bubble ${
+            mine
+              ? "rounded-br-md bg-bubble-out text-bubble-out-foreground"
+              : "rounded-bl-md bg-bubble-in text-bubble-in-foreground"
+          }`}
+        >
+          {msg.media_url && msg.media_type === "image" && (
+            <div className="mb-1 overflow-hidden rounded-xl">
+              <MediaImage path={msg.media_url} alt={msg.media_name ?? ""} />
+            </div>
+          )}
+          {msg.media_url && msg.media_type === "video" && (
+            <div className="mb-1"><MediaVideo path={msg.media_url} /></div>
+          )}
+          {msg.media_url && msg.media_type === "audio" && (
+            <div className="mb-1"><MediaAudio path={msg.media_url} /></div>
+          )}
+          {msg.media_url && msg.media_type === "file" && (
+            <div className="mb-1">
+              <MediaFile path={msg.media_url} name={msg.media_name ?? "File"} size={msg.media_size} />
+            </div>
+          )}
+          {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
+
+          <div className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${mine ? "text-white/70" : "text-muted-foreground"}`}>
+            <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            {mine && (seen ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />)}
+          </div>
+
+          {grouped.length > 0 && (
+            <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : ""}`}>
+              {grouped.map(([emoji, { count, mine: ownMine }]) => (
+                <button
+                  key={emoji}
+                  onClick={() => toggleReaction(emoji)}
+                  className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] ${
+                    ownMine ? "bg-primary/20 text-primary" : "bg-background/40"
+                  }`}
+                >
+                  <span>{emoji}</span>
+                  <span>{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Popover open={reactOpen} onOpenChange={setReactOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className="invisible rounded-full p-1 text-muted-foreground hover:bg-accent group-hover:visible"
+              aria-label="React"
+            >
+              <Smile className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="flex w-auto gap-1 p-2" side="top">
+            {REACTIONS.map((e) => (
+              <button
+                key={e}
+                onClick={() => toggleReaction(e)}
+                className="rounded-full p-1.5 text-lg transition hover:scale-125"
+              >
+                {e}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  );
+}
+
+async function markAsRead(conversationId: string, userId: string) {
+  await supabase.from("conversation_members")
+    .update({ last_read_at: new Date().toISOString() })
+    .eq("conversation_id", conversationId)
+    .eq("user_id", userId);
+}
+
+// Silence unused-import warnings if any unused (AvatarFallback / X)
+void AvatarFallback; void X;
