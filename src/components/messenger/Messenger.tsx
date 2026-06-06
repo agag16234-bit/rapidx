@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users, Paperclip,
-  Smile, Check, CheckCheck, Sun, Moon, UserCog, X,
+  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info,
 } from "lucide-react";
 import { AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import { useTheme } from "@/components/theme-provider";
 import { ProfileSheet } from "@/components/messenger/ProfileSheet";
 import { UserAvatar, MediaImage, MediaVideo, MediaAudio, MediaFile } from "@/components/messenger/Media";
 import { uploadToBucket, detectMediaType } from "@/lib/storage";
+import { GroupCreateDialog } from "@/components/messenger/GroupCreateDialog";
+import { GroupInfoSheet } from "@/components/messenger/GroupInfoSheet";
 
 type Profile = {
   id: string; display_name: string; username: string | null; avatar_url: string | null;
@@ -217,6 +219,7 @@ function ChatList({
           <Button size="icon" variant="ghost" onClick={toggle} title="Toggle theme">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+          <NewGroupButton userId={userId} onCreated={(id) => onSelect(id)} />
           <NewChatDialog userId={userId} onCreated={(id) => onSelect(id)} />
           <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile">
             <UserCog className="h-4 w-4" />
@@ -371,6 +374,18 @@ function NewChatDialog({ userId, onCreated }: { userId: string; onCreated: (id: 
   );
 }
 
+function NewGroupButton({ userId, onCreated }: { userId: string; onCreated: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="icon" variant="ghost" title="New group" onClick={() => setOpen(true)}>
+        <UsersRound className="h-5 w-5" />
+      </Button>
+      <GroupCreateDialog userId={userId} open={open} onOpenChange={setOpen} onCreated={onCreated} />
+    </>
+  );
+}
+
 /* ---------------------------------- VIEW ---------------------------------- */
 
 function ChatView({
@@ -378,6 +393,7 @@ function ChatView({
 }: { conversationId: string; user: User; onlineUserIds: Set<string>; onBack: () => void }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
   const [otherLastRead, setOtherLastRead] = useState<Date | null>(null);
@@ -561,13 +577,32 @@ function ChatView({
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => header?.conv?.is_group && setGroupInfoOpen(true)}
+          className={`min-w-0 flex-1 text-left ${header?.conv?.is_group ? "cursor-pointer" : "cursor-default"}`}
+        >
           <div className="truncate text-sm font-semibold">
             {header?.conv?.is_group ? header.conv?.name ?? "Group" : header?.other?.display_name ?? "Loading…"}
           </div>
           <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
-        </div>
+        </button>
+        {header?.conv?.is_group && (
+          <Button size="icon" variant="ghost" title="Group info" onClick={() => setGroupInfoOpen(true)}>
+            <Info className="h-5 w-5" />
+          </Button>
+        )}
       </header>
+
+      {header?.conv?.is_group && (
+        <GroupInfoSheet
+          conversationId={conversationId}
+          userId={user.id}
+          open={groupInfoOpen}
+          onOpenChange={setGroupInfoOpen}
+          onClosed={onBack}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
         <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
