@@ -19,18 +19,21 @@ export type Database = {
           conversation_id: string
           joined_at: string
           last_read_at: string
+          role: string
           user_id: string
         }
         Insert: {
           conversation_id: string
           joined_at?: string
           last_read_at?: string
+          role?: string
           user_id: string
         }
         Update: {
           conversation_id?: string
           joined_at?: string
           last_read_at?: string
+          role?: string
           user_id?: string
         }
         Relationships: [
@@ -45,24 +48,30 @@ export type Database = {
       }
       conversations: {
         Row: {
+          avatar_url: string | null
           created_at: string
           created_by: string | null
+          description: string | null
           id: string
           is_group: boolean
           last_message_at: string
           name: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           is_group?: boolean
           last_message_at?: string
           name?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           is_group?: boolean
           last_message_at?: string
@@ -200,6 +209,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_group: {
+        Args: {
+          _avatar_url: string
+          _description: string
+          _member_ids: string[]
+          _name: string
+        }
+        Returns: string
+      }
       is_conversation_member: {
         Args: { _conv_id: string; _user_id: string }
         Returns: boolean
