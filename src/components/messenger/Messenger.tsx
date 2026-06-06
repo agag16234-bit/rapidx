@@ -577,13 +577,32 @@ function ChatView({
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => header?.conv?.is_group && setGroupInfoOpen(true)}
+          className={`min-w-0 flex-1 text-left ${header?.conv?.is_group ? "cursor-pointer" : "cursor-default"}`}
+        >
           <div className="truncate text-sm font-semibold">
             {header?.conv?.is_group ? header.conv?.name ?? "Group" : header?.other?.display_name ?? "Loading…"}
           </div>
           <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
-        </div>
+        </button>
+        {header?.conv?.is_group && (
+          <Button size="icon" variant="ghost" title="Group info" onClick={() => setGroupInfoOpen(true)}>
+            <Info className="h-5 w-5" />
+          </Button>
+        )}
       </header>
+
+      {header?.conv?.is_group && (
+        <GroupInfoSheet
+          conversationId={conversationId}
+          userId={user.id}
+          open={groupInfoOpen}
+          onOpenChange={setGroupInfoOpen}
+          onClosed={onBack}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
         <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
