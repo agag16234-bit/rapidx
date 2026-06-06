@@ -219,6 +219,7 @@ function ChatList({
           <Button size="icon" variant="ghost" onClick={toggle} title="Toggle theme">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+          <NewGroupButton userId={userId} onCreated={(id) => onSelect(id)} />
           <NewChatDialog userId={userId} onCreated={(id) => onSelect(id)} />
           <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile">
             <UserCog className="h-4 w-4" />
