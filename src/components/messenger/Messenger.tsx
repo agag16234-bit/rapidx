@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users, Paperclip,
-  Smile, Check, CheckCheck, Sun, Moon, UserCog, X,
+  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info,
 } from "lucide-react";
 import { AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import { useTheme } from "@/components/theme-provider";
 import { ProfileSheet } from "@/components/messenger/ProfileSheet";
 import { UserAvatar, MediaImage, MediaVideo, MediaAudio, MediaFile } from "@/components/messenger/Media";
 import { uploadToBucket, detectMediaType } from "@/lib/storage";
+import { GroupCreateDialog } from "@/components/messenger/GroupCreateDialog";
+import { GroupInfoSheet } from "@/components/messenger/GroupInfoSheet";
 
 type Profile = {
   id: string; display_name: string; username: string | null; avatar_url: string | null;
