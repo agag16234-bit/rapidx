@@ -374,6 +374,18 @@ function NewChatDialog({ userId, onCreated }: { userId: string; onCreated: (id: 
   );
 }
 
+function NewGroupButton({ userId, onCreated }: { userId: string; onCreated: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="icon" variant="ghost" title="New group" onClick={() => setOpen(true)}>
+        <UsersRound className="h-5 w-5" />
+      </Button>
+      <GroupCreateDialog userId={userId} open={open} onOpenChange={setOpen} onCreated={onCreated} />
+    </>
+  );
+}
+
 /* ---------------------------------- VIEW ---------------------------------- */
 
 function ChatView({
