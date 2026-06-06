@@ -393,6 +393,7 @@ function ChatView({
 }: { conversationId: string; user: User; onlineUserIds: Set<string>; onBack: () => void }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
   const [otherLastRead, setOtherLastRead] = useState<Date | null>(null);
