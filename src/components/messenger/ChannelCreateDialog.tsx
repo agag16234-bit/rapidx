@@ -24,9 +24,9 @@ export function ChannelCreateDialog({ userId, onCreated }: { userId: string; onC
     setLoading(true);
     const { data, error } = await supabase.rpc("create_channel", {
       _name: name.trim(),
-      _slug: slug.trim() || null,
-      _description: desc.trim() || null,
-      _avatar_url: null,
+      _slug: slug.trim() || "",
+      _description: desc.trim() || "",
+      _avatar_url: "",
       _is_public: isPublic,
     });
     setLoading(false);
