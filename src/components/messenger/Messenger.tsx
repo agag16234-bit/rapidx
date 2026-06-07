@@ -333,29 +333,6 @@ function ChatList({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b px-4 py-4">
-        <button onClick={() => setProfileOpen(true)} className="flex items-center gap-2.5 rounded-xl p-1 hover:bg-sidebar-accent">
-          <UserAvatar path={me?.avatar_url} name={me?.display_name ?? "U"} className="h-10 w-10 ring-2 ring-primary/20" />
-          <div className="text-left">
-            <div className="text-sm font-semibold leading-tight">{me?.display_name ?? "You"}</div>
-            <div className="text-xs text-muted-foreground">@{me?.username ?? "you"}</div>
-          </div>
-        </button>
-        <div className="flex items-center gap-0.5">
-          <Button size="icon" variant="ghost" onClick={toggle} title="Toggle theme">
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-          <NewGroupButton userId={userId} onCreated={(id) => onSelect(id)} />
-          <NewChatDialog userId={userId} onCreated={(id) => onSelect(id)} />
-          <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile">
-            <UserCog className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={handleSignOut} title="Sign out">
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
       <div className="px-3 pt-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -381,19 +358,19 @@ function ChatList({
                   <button
                     onClick={() => onSelect(c.id)}
                     className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition ${
-                      active ? "bg-primary/10" : "hover:bg-sidebar-accent"
+                      active ? "bg-primary/15 shadow-bubble" : "hover:bg-sidebar-accent"
                     }`}
                   >
                     <div className="relative">
                       {c.is_group ? (
-                        <div className="grid h-12 w-12 place-items-center rounded-full bg-accent text-primary">
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-accent text-white shadow-bubble">
                           <Users className="h-5 w-5" />
                         </div>
                       ) : (
                         <UserAvatar path={c.other?.avatar_url} name={title} className="h-12 w-12" />
                       )}
                       {isOnline && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-sidebar bg-emerald-500" />
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-emerald-500" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -406,7 +383,7 @@ function ChatList({
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-xs text-muted-foreground">{preview}</p>
                         {c.unread > 0 && (
-                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gradient-primary px-1.5 text-[10px] font-bold text-white">
                             {c.unread > 99 ? "99+" : c.unread}
                           </span>
                         )}
@@ -419,8 +396,6 @@ function ChatList({
           </ul>
         )}
       </ScrollArea>
-
-      <ProfileSheet user={user} open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   );
 }
