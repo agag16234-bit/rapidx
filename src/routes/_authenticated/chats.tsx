@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/_authenticated/chats")({
-  head: () => ({ meta: [{ title: "Chats — Pulse" }] }),
+  head: () => ({ meta: [{ title: "Chats — Premium Chat" }] }),
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
