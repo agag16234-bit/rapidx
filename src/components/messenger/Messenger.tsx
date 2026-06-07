@@ -131,8 +131,6 @@ export function Messenger({ user }: { user: User }) {
         ) : (
           <EmptyState tab={tab} />
         )}
-        {/* keep activeId used to avoid unused warning */}
-        {void activeId}
       </main>
     </div>
   );
