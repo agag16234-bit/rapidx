@@ -240,18 +240,9 @@ function ChatList({
   user, activeId, onlineUserIds, onSelect,
 }: { user: User; activeId: string | null; onlineUserIds: Set<string>; onSelect: (id: string) => void }) {
   const queryClient = useQueryClient();
-  const { theme, toggle } = useTheme();
   const [q, setQ] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
   const userId = user.id;
-
-  const { data: me } = useQuery({
-    queryKey: ["me", userId],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-      return data as Profile | null;
-    },
-  });
+  void user;
 
   const { data: conversations = [] } = useQuery({
     queryKey: ["conversations", userId],
