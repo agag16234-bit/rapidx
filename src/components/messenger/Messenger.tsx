@@ -89,7 +89,7 @@ export function Messenger({ user }: { user: User }) {
     return () => { clearInterval(heartbeat); supabase.removeChannel(channel); };
   }, [user.id]);
 
-  const activeId = tab === "chats" ? activeChatId : activeChannelId;
+  
 
   return (
     <div className="flex h-[100dvh] text-foreground">
