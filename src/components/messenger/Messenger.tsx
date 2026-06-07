@@ -100,7 +100,7 @@ function EmptyState() {
       <div className="mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-primary text-white shadow-elevated">
         <MessageCircle className="h-9 w-9" />
       </div>
-      <h2 className="text-2xl font-bold">Welcome to Pulse</h2>
+      <h2 className="text-2xl font-bold">Welcome to Premium Chat</h2>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
         Select a conversation or start a new one to begin chatting.
       </p>
