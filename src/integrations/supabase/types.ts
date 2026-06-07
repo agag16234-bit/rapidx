@@ -14,6 +14,197 @@ export type Database = {
   }
   public: {
     Tables: {
+      channel_invites: {
+        Row: {
+          channel_id: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          max_uses: number | null
+          token: string
+          uses: number
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          token?: string
+          uses?: number
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          token?: string
+          uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_invites_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_members: {
+        Row: {
+          channel_id: string
+          id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["channel_role"]
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["channel_role"]
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["channel_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_members_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_post_views: {
+        Row: {
+          post_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          post_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          post_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_post_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "channel_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_posts: {
+        Row: {
+          author_id: string
+          channel_id: string
+          content: string | null
+          created_at: string
+          edited_at: string | null
+          id: string
+          media_name: string | null
+          media_size: number | null
+          media_type: string | null
+          media_url: string | null
+          pinned: boolean
+          view_count: number
+        }
+        Insert: {
+          author_id: string
+          channel_id: string
+          content?: string | null
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          media_name?: string | null
+          media_size?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          pinned?: boolean
+          view_count?: number
+        }
+        Update: {
+          author_id?: string
+          channel_id?: string
+          content?: string | null
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          media_name?: string | null
+          media_size?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          pinned?: boolean
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_posts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_public: boolean
+          name: string
+          slug: string | null
+          subscriber_count: number
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          name: string
+          slug?: string | null
+          subscriber_count?: number
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          name?: string
+          slug?: string | null
+          subscriber_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversation_members: {
         Row: {
           conversation_id: string
@@ -209,6 +400,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      channel_is_public: { Args: { _channel_id: string }; Returns: boolean }
+      create_channel: {
+        Args: {
+          _avatar_url: string
+          _description: string
+          _is_public: boolean
+          _name: string
+          _slug: string
+        }
+        Returns: string
+      }
       create_group: {
         Args: {
           _avatar_url: string
@@ -218,17 +420,30 @@ export type Database = {
         }
         Returns: string
       }
+      is_channel_admin: {
+        Args: { _channel_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_channel_member: {
+        Args: { _channel_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_channel_owner: {
+        Args: { _channel_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_conversation_member: {
         Args: { _conv_id: string; _user_id: string }
         Returns: boolean
       }
+      join_channel_by_invite: { Args: { _token: string }; Returns: string }
       start_direct_conversation: {
         Args: { _other_user: string }
         Returns: string
       }
     }
     Enums: {
-      [_ in never]: never
+      channel_role: "owner" | "admin" | "subscriber"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -355,6 +570,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      channel_role: ["owner", "admin", "subscriber"],
+    },
   },
 } as const

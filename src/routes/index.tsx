@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pulse — Chat in real time" },
+      { title: "Premium Chat — Real-time messaging" },
       { name: "description", content: "A modern, beautiful messenger. Sign in to start chatting." },
     ],
   }),
@@ -25,7 +25,7 @@ function Landing() {
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-white shadow-elevated">
             <MessageCircle className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold tracking-tight">Pulse</span>
+          <span className="text-lg font-bold tracking-tight">Premium Chat</span>
         </div>
         <Link to="/auth" className="rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background transition hover:opacity-90">
           Sign in
@@ -44,7 +44,7 @@ function Landing() {
               <span className="bg-gradient-primary bg-clip-text text-transparent">made simple.</span>
             </h1>
             <p className="mt-5 max-w-md text-lg text-muted-foreground">
-              Pulse is a beautifully fast, modern messenger. Chat with friends, build groups,
+              Premium Chat is a beautifully fast, modern messenger with channels. Chat with friends, build groups,
               and stay close — wherever you are.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — Pulse" }] }),
+  head: () => ({ meta: [{ title: "Sign in — Premium Chat" }] }),
   component: AuthPage,
 });
 
@@ -46,7 +46,7 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Welcome to Pulse!");
+        toast.success("Welcome to Premium Chat!");
         navigate({ to: "/chats", replace: true });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -72,13 +72,13 @@ function AuthPage() {
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-primary text-white shadow-elevated">
             <MessageCircle className="h-5 w-5" />
           </div>
-          <span className="text-xl font-bold">Pulse</span>
+          <span className="text-xl font-bold">Premium Chat</span>
         </Link>
 
         <div className="rounded-3xl border bg-card p-8 shadow-elevated">
           <h1 className="text-2xl font-bold">{mode === "signin" ? "Welcome back" : "Create your account"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin" ? "Sign in to continue your conversations." : "Join Pulse and start chatting in seconds."}
+            {mode === "signin" ? "Sign in to continue your conversations." : "Join Premium Chat and start chatting in seconds."}
           </p>
 
           <Button type="button" variant="outline" className="mt-6 w-full" onClick={handleGoogle}>

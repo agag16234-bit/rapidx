@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users, Paperclip,
-  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info,
+  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info, Megaphone,
 } from "lucide-react";
 import { AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import { UserAvatar, MediaImage, MediaVideo, MediaAudio, MediaFile } from "@/com
 import { uploadToBucket, detectMediaType } from "@/lib/storage";
 import { GroupCreateDialog } from "@/components/messenger/GroupCreateDialog";
 import { GroupInfoSheet } from "@/components/messenger/GroupInfoSheet";
+import { ChannelCreateDialog } from "@/components/messenger/ChannelCreateDialog";
+import { ChannelDiscover } from "@/components/messenger/ChannelDiscover";
+import { ChannelList } from "@/components/messenger/ChannelList";
+import { ChannelView } from "@/components/messenger/ChannelView";
 
 type Profile = {
   id: string; display_name: string; username: string | null; avatar_url: string | null;
@@ -41,9 +45,27 @@ type Reaction = { id: string; message_id: string; user_id: string; emoji: string
 const REACTIONS = ["❤️", "👍", "😂", "😮", "😢"];
 
 export function Messenger({ user }: { user: User }) {
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"chats" | "channels">("chats");
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [mobileShowList, setMobileShowList] = useState(true);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  // Handle ?invite=token from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("invite");
+    if (!token) return;
+    (async () => {
+      const { data, error } = await supabase.rpc("join_channel_by_invite", { _token: token });
+      window.history.replaceState({}, "", window.location.pathname);
+      if (error || !data) { toast.error(error?.message ?? "Invalid invite"); return; }
+      toast.success("Joined channel");
+      setTab("channels");
+      setActiveChannelId(data as string);
+      setMobileShowList(false);
+    })();
+  }, []);
 
   // Global presence channel
   useEffect(() => {
@@ -59,7 +81,6 @@ export function Messenger({ user }: { user: User }) {
       }
     });
 
-    // Heartbeat last_seen every 60s
     const heartbeat = setInterval(() => {
       supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", user.id);
     }, 60_000);
@@ -68,43 +89,146 @@ export function Messenger({ user }: { user: User }) {
     return () => { clearInterval(heartbeat); supabase.removeChannel(channel); };
   }, [user.id]);
 
+  
+
   return (
-    <div className="flex h-[100dvh] bg-background text-foreground">
-      <aside className={`${mobileShowList ? "flex" : "hidden"} md:flex w-full md:w-[360px] flex-col border-r bg-sidebar`}>
-        <ChatList
-          user={user}
-          activeId={activeId}
-          onlineUserIds={onlineUserIds}
-          onSelect={(id) => { setActiveId(id); setMobileShowList(false); }}
+    <div className="flex h-[100dvh] text-foreground">
+      <aside className={`${mobileShowList ? "flex" : "hidden"} md:flex w-full md:w-[380px] flex-col border-r glass`}>
+        <SidebarHeader user={user} tab={tab} setTab={(t) => setTab(t)}
+          onChatCreated={(id) => { setActiveChatId(id); setTab("chats"); setMobileShowList(false); }}
+          onChannelCreated={(id) => { setActiveChannelId(id); setTab("channels"); setMobileShowList(false); }}
         />
+        {tab === "chats" ? (
+          <ChatList
+            user={user}
+            activeId={activeChatId}
+            onlineUserIds={onlineUserIds}
+            onSelect={(id) => { setActiveChatId(id); setMobileShowList(false); }}
+          />
+        ) : (
+          <ChannelList
+            userId={user.id}
+            activeId={activeChannelId}
+            onSelect={(id) => { setActiveChannelId(id); setMobileShowList(false); }}
+          />
+        )}
       </aside>
       <main className={`${mobileShowList ? "hidden" : "flex"} md:flex flex-1 flex-col bg-chat-pattern`}>
-        {activeId ? (
+        {tab === "chats" && activeChatId ? (
           <ChatView
-            conversationId={activeId}
+            conversationId={activeChatId}
             user={user}
             onlineUserIds={onlineUserIds}
             onBack={() => setMobileShowList(true)}
           />
+        ) : tab === "channels" && activeChannelId ? (
+          <ChannelView
+            channelId={activeChannelId}
+            userId={user.id}
+            onBack={() => setMobileShowList(true)}
+            onLeft={() => { setActiveChannelId(null); setMobileShowList(true); }}
+          />
         ) : (
-          <EmptyState />
+          <EmptyState tab={tab} />
         )}
       </main>
     </div>
   );
 }
 
-function EmptyState() {
+function EmptyState({ tab }: { tab: "chats" | "channels" }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <div className="mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-primary text-white shadow-elevated">
-        <MessageCircle className="h-9 w-9" />
+      <div className="mb-6 grid h-24 w-24 place-items-center rounded-3xl bg-gradient-primary text-white shadow-elevated">
+        {tab === "chats" ? <MessageCircle className="h-10 w-10" /> : <Megaphone className="h-10 w-10" />}
       </div>
-      <h2 className="text-2xl font-bold">Welcome to Pulse</h2>
+      <h2 className="font-display text-3xl font-bold">Welcome to Premium Chat</h2>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        Select a conversation or start a new one to begin chatting.
+        {tab === "chats"
+          ? "Select a conversation or start a new one to begin chatting."
+          : "Select a channel, create your own, or discover public broadcasts."}
       </p>
     </div>
+  );
+}
+
+function SidebarHeader({ user, tab, setTab, onChatCreated, onChannelCreated }: {
+  user: User; tab: "chats" | "channels"; setTab: (t: "chats" | "channels") => void;
+  onChatCreated: (id: string) => void; onChannelCreated: (id: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const { theme, toggle } = useTheme();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const userId = user.id;
+  const { data: me } = useQuery({
+    queryKey: ["me", userId],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      return data as Profile | null;
+    },
+  });
+
+  const handleSignOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-between border-b px-4 py-4">
+        <button onClick={() => setProfileOpen(true)} className="flex items-center gap-2.5 rounded-2xl p-1 hover:bg-sidebar-accent">
+          <UserAvatar path={me?.avatar_url} name={me?.display_name ?? "U"} className="h-11 w-11 ring-2 ring-primary/30" />
+          <div className="text-left">
+            <div className="font-display text-sm font-bold leading-tight">{me?.display_name ?? "You"}</div>
+            <div className="text-xs text-muted-foreground">@{me?.username ?? "you"}</div>
+          </div>
+        </button>
+        <div className="flex items-center gap-0.5">
+          <Button size="icon" variant="ghost" onClick={toggle} title="Toggle theme" className="rounded-full">
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+          {tab === "chats" ? (
+            <>
+              <NewGroupButton userId={userId} onCreated={onChatCreated} />
+              <NewChatDialog userId={userId} onCreated={onChatCreated} />
+            </>
+          ) : (
+            <>
+              <ChannelDiscover userId={userId} onJoined={onChannelCreated} />
+              <ChannelCreateDialog userId={userId} onCreated={onChannelCreated} />
+            </>
+          )}
+          <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile" className="rounded-full">
+            <UserCog className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={handleSignOut} title="Sign out" className="rounded-full">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="px-3 pt-3">
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-muted/60 p-1">
+          <button
+            onClick={() => setTab("chats")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              tab === "chats" ? "bg-gradient-primary text-white shadow-bubble" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <MessageCircle className="mr-1 inline h-3.5 w-3.5" />Chats
+          </button>
+          <button
+            onClick={() => setTab("channels")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              tab === "channels" ? "bg-gradient-primary text-white shadow-bubble" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Megaphone className="mr-1 inline h-3.5 w-3.5" />Channels
+          </button>
+        </div>
+      </div>
+      <ProfileSheet user={user} open={profileOpen} onOpenChange={setProfileOpen} />
+    </>
   );
 }
 
@@ -114,18 +238,9 @@ function ChatList({
   user, activeId, onlineUserIds, onSelect,
 }: { user: User; activeId: string | null; onlineUserIds: Set<string>; onSelect: (id: string) => void }) {
   const queryClient = useQueryClient();
-  const { theme, toggle } = useTheme();
   const [q, setQ] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
   const userId = user.id;
-
-  const { data: me } = useQuery({
-    queryKey: ["me", userId],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-      return data as Profile | null;
-    },
-  });
+  void user;
 
   const { data: conversations = [] } = useQuery({
     queryKey: ["conversations", userId],
@@ -207,29 +322,6 @@ function ChatList({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b px-4 py-4">
-        <button onClick={() => setProfileOpen(true)} className="flex items-center gap-2.5 rounded-xl p-1 hover:bg-sidebar-accent">
-          <UserAvatar path={me?.avatar_url} name={me?.display_name ?? "U"} className="h-10 w-10 ring-2 ring-primary/20" />
-          <div className="text-left">
-            <div className="text-sm font-semibold leading-tight">{me?.display_name ?? "You"}</div>
-            <div className="text-xs text-muted-foreground">@{me?.username ?? "you"}</div>
-          </div>
-        </button>
-        <div className="flex items-center gap-0.5">
-          <Button size="icon" variant="ghost" onClick={toggle} title="Toggle theme">
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-          <NewGroupButton userId={userId} onCreated={(id) => onSelect(id)} />
-          <NewChatDialog userId={userId} onCreated={(id) => onSelect(id)} />
-          <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile">
-            <UserCog className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={handleSignOut} title="Sign out">
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
       <div className="px-3 pt-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -255,19 +347,19 @@ function ChatList({
                   <button
                     onClick={() => onSelect(c.id)}
                     className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition ${
-                      active ? "bg-primary/10" : "hover:bg-sidebar-accent"
+                      active ? "bg-primary/15 shadow-bubble" : "hover:bg-sidebar-accent"
                     }`}
                   >
                     <div className="relative">
                       {c.is_group ? (
-                        <div className="grid h-12 w-12 place-items-center rounded-full bg-accent text-primary">
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-accent text-white shadow-bubble">
                           <Users className="h-5 w-5" />
                         </div>
                       ) : (
                         <UserAvatar path={c.other?.avatar_url} name={title} className="h-12 w-12" />
                       )}
                       {isOnline && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-sidebar bg-emerald-500" />
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-emerald-500" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -280,7 +372,7 @@ function ChatList({
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-xs text-muted-foreground">{preview}</p>
                         {c.unread > 0 && (
-                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gradient-primary px-1.5 text-[10px] font-bold text-white">
                             {c.unread > 99 ? "99+" : c.unread}
                           </span>
                         )}
@@ -293,8 +385,6 @@ function ChatList({
           </ul>
         )}
       </ScrollArea>
-
-      <ProfileSheet user={user} open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   );
 }
