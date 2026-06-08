@@ -28,6 +28,7 @@ export function GroupInfoSheet({
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["group-info", conversationId],
