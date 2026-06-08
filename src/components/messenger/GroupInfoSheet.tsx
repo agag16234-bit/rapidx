@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/messenger/Media";
 import { toast } from "sonner";
-import { Crown, Shield, UserMinus, UserPlus, LogOut, Trash2, Search, Check, Pencil } from "lucide-react";
+import { Crown, Shield, UserMinus, UserPlus, LogOut, Trash2, Search, Check, Pencil, Settings as SettingsIcon } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { GroupSettingsSheet } from "@/components/messenger/GroupSettingsSheet";
 
 type Profile = {
   id: string; display_name: string; username: string | null; avatar_url: string | null;
