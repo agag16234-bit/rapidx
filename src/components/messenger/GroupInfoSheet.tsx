@@ -114,9 +114,14 @@ export function GroupInfoSheet({
           )}
           <p className="mt-1 text-xs text-muted-foreground">{data?.members.length ?? 0} members</p>
           {canEdit && (
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => setEditing(true)}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit group
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditing(true)}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+              </Button>
+              <Button size="sm" className="rounded-full bg-gradient-primary text-white" onClick={() => setSettingsOpen(true)}>
+                <SettingsIcon className="mr-1.5 h-3.5 w-3.5" /> Settings
+              </Button>
+            </div>
           )}
         </div>
 
