@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Send, Paperclip, Eye, Pin, Trash2, Edit3, MoreVertical, Link2, LogOut, Megaphone, Users } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, Eye, Pin, Trash2, Edit3, MoreVertical, Link2, LogOut, Megaphone, Users, Settings as SettingsIcon } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 import { uploadToBucket, detectMediaType } from "@/lib/storage";
 import { MediaImage, MediaVideo, MediaAudio, MediaFile } from "@/components/messenger/Media";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { ChannelSettingsSheet } from "@/components/messenger/ChannelSettingsSheet";
 
 type Channel = { id: string; name: string; slug: string | null; description: string | null; avatar_url: string | null; is_public: boolean; subscriber_count: number; created_by: string };
 type Post = {
