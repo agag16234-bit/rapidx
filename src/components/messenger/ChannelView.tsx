@@ -189,7 +189,10 @@ export function ChannelView({ channelId, userId, onBack, onLeft }: {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-strong rounded-2xl">
             {isAdmin && (
-              <DropdownMenuItem onClick={createInvite}><Link2 className="mr-2 h-4 w-4" />Invite link</DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)}><SettingsIcon className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={createInvite}><Link2 className="mr-2 h-4 w-4" />Quick invite link</DropdownMenuItem>
+              </>
             )}
             {!isOwner && (
               <DropdownMenuItem onClick={leaveChannel}><LogOut className="mr-2 h-4 w-4" />Leave channel</DropdownMenuItem>
@@ -203,6 +206,14 @@ export function ChannelView({ channelId, userId, onBack, onLeft }: {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+
+      <ChannelSettingsSheet
+        channelId={channelId}
+        userId={userId}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onDeleted={onLeft}
+      />
 
       {channel?.description && (
         <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">{channel.description}</div>
