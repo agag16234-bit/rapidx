@@ -213,6 +213,14 @@ export function GroupInfoSheet({
           existingIds={new Set((data?.members ?? []).map((m) => m.user_id))}
           onAdded={refresh}
         />
+        <GroupSettingsSheet
+          conversationId={conversationId}
+          userId={userId}
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          onDeleted={() => { onOpenChange(false); onClosed?.(); }}
+        />
+
       </SheetContent>
     </Sheet>
   );
