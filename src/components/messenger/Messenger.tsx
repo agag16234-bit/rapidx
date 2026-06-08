@@ -51,19 +51,30 @@ export function Messenger({ user }: { user: User }) {
   const [mobileShowList, setMobileShowList] = useState(true);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
-  // Handle ?invite=token from URL
+  // Handle ?invite=token (channel) or ?ginvite=token (group) from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("invite");
-    if (!token) return;
+    const channelToken = params.get("invite");
+    const groupToken = params.get("ginvite");
+    if (!channelToken && !groupToken) return;
     (async () => {
-      const { data, error } = await supabase.rpc("join_channel_by_invite", { _token: token });
-      window.history.replaceState({}, "", window.location.pathname);
-      if (error || !data) { toast.error(error?.message ?? "Invalid invite"); return; }
-      toast.success("Joined channel");
-      setTab("channels");
-      setActiveChannelId(data as string);
-      setMobileShowList(false);
+      if (channelToken) {
+        const { data, error } = await supabase.rpc("join_channel_by_invite", { _token: channelToken });
+        window.history.replaceState({}, "", window.location.pathname);
+        if (error || !data) { toast.error(error?.message ?? "Invalid invite"); return; }
+        toast.success("Joined channel");
+        setTab("channels");
+        setActiveChannelId(data as string);
+        setMobileShowList(false);
+      } else if (groupToken) {
+        const { data, error } = await supabase.rpc("join_conversation_by_invite", { _token: groupToken });
+        window.history.replaceState({}, "", window.location.pathname);
+        if (error || !data) { toast.error(error?.message ?? "Invalid invite"); return; }
+        toast.success("Joined group");
+        setTab("chats");
+        setActiveChatId(data as string);
+        setMobileShowList(false);
+      }
     })();
   }, []);
 
