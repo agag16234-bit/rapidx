@@ -205,11 +205,82 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_bans: {
+        Row: {
+          banned_at: string
+          banned_by: string | null
+          conversation_id: string
+          user_id: string
+        }
+        Insert: {
+          banned_at?: string
+          banned_by?: string | null
+          conversation_id: string
+          user_id: string
+        }
+        Update: {
+          banned_at?: string
+          banned_by?: string | null
+          conversation_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_bans_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_invites: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          max_uses: number | null
+          token: string
+          uses: number
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          token?: string
+          uses?: number
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          token?: string
+          uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_invites_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_members: {
         Row: {
           conversation_id: string
           joined_at: string
           last_read_at: string
+          muted_until: string | null
           role: string
           user_id: string
         }
@@ -217,6 +288,7 @@ export type Database = {
           conversation_id: string
           joined_at?: string
           last_read_at?: string
+          muted_until?: string | null
           role?: string
           user_id: string
         }
@@ -224,6 +296,7 @@ export type Database = {
           conversation_id?: string
           joined_at?: string
           last_read_at?: string
+          muted_until?: string | null
           role?: string
           user_id?: string
         }
@@ -437,6 +510,7 @@ export type Database = {
         Returns: boolean
       }
       join_channel_by_invite: { Args: { _token: string }; Returns: string }
+      join_conversation_by_invite: { Args: { _token: string }; Returns: string }
       start_direct_conversation: {
         Args: { _other_user: string }
         Returns: string

@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Send, Paperclip, Eye, Pin, Trash2, Edit3, MoreVertical, Link2, LogOut, Megaphone, Users } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, Eye, Pin, Trash2, Edit3, MoreVertical, Link2, LogOut, Megaphone, Users, Settings as SettingsIcon } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 import { uploadToBucket, detectMediaType } from "@/lib/storage";
 import { MediaImage, MediaVideo, MediaAudio, MediaFile } from "@/components/messenger/Media";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { ChannelSettingsSheet } from "@/components/messenger/ChannelSettingsSheet";
 
 type Channel = { id: string; name: string; slug: string | null; description: string | null; avatar_url: string | null; is_public: boolean; subscriber_count: number; created_by: string };
 type Post = {
@@ -26,6 +27,7 @@ export function ChannelView({ channelId, userId, onBack, onLeft }: {
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -187,7 +189,10 @@ export function ChannelView({ channelId, userId, onBack, onLeft }: {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-strong rounded-2xl">
             {isAdmin && (
-              <DropdownMenuItem onClick={createInvite}><Link2 className="mr-2 h-4 w-4" />Invite link</DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)}><SettingsIcon className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={createInvite}><Link2 className="mr-2 h-4 w-4" />Quick invite link</DropdownMenuItem>
+              </>
             )}
             {!isOwner && (
               <DropdownMenuItem onClick={leaveChannel}><LogOut className="mr-2 h-4 w-4" />Leave channel</DropdownMenuItem>
@@ -201,6 +206,14 @@ export function ChannelView({ channelId, userId, onBack, onLeft }: {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+
+      <ChannelSettingsSheet
+        channelId={channelId}
+        userId={userId}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onDeleted={onLeft}
+      />
 
       {channel?.description && (
         <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">{channel.description}</div>

@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/messenger/Media";
 import { toast } from "sonner";
-import { Crown, Shield, UserMinus, UserPlus, LogOut, Trash2, Search, Check, Pencil } from "lucide-react";
+import { Crown, Shield, UserMinus, UserPlus, LogOut, Trash2, Search, Check, Pencil, Settings as SettingsIcon } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { GroupSettingsSheet } from "@/components/messenger/GroupSettingsSheet";
 
 type Profile = {
   id: string; display_name: string; username: string | null; avatar_url: string | null;
@@ -27,6 +28,7 @@ export function GroupInfoSheet({
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["group-info", conversationId],
@@ -112,9 +114,14 @@ export function GroupInfoSheet({
           )}
           <p className="mt-1 text-xs text-muted-foreground">{data?.members.length ?? 0} members</p>
           {canEdit && (
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => setEditing(true)}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit group
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditing(true)}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+              </Button>
+              <Button size="sm" className="rounded-full bg-gradient-primary text-white" onClick={() => setSettingsOpen(true)}>
+                <SettingsIcon className="mr-1.5 h-3.5 w-3.5" /> Settings
+              </Button>
+            </div>
           )}
         </div>
 
@@ -206,6 +213,14 @@ export function GroupInfoSheet({
           existingIds={new Set((data?.members ?? []).map((m) => m.user_id))}
           onAdded={refresh}
         />
+        <GroupSettingsSheet
+          conversationId={conversationId}
+          userId={userId}
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          onDeleted={() => { onOpenChange(false); onClosed?.(); }}
+        />
+
       </SheetContent>
     </Sheet>
   );
