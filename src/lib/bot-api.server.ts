@@ -55,8 +55,8 @@ export async function authenticateBot(request: Request): Promise<
   if (!tok || tok.revoked_at) {
     return { ok: false, response: jsonResponse({ ok: false, error_code: 401, description: "Invalid or revoked token" }, 401) };
   }
-  // @ts-expect-error nested
-  if (!tok.bots.enabled) {
+  const botRow = (tok.bots as unknown) as { id: string; enabled: boolean; owner_id: string } | null;
+  if (!botRow?.enabled) {
     return { ok: false, response: jsonResponse({ ok: false, error_code: 403, description: "Bot disabled" }, 403) };
   }
   const { data: prof } = await supabaseAdmin
