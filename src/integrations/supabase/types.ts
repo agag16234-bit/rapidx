@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_activity_logs: {
+        Row: {
+          bot_id: string
+          conversation_id: string | null
+          created_at: string
+          endpoint: string
+          error: string | null
+          id: string
+          latency_ms: number | null
+          status: number
+        }
+        Insert: {
+          bot_id: string
+          conversation_id?: string | null
+          created_at?: string
+          endpoint: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          status: number
+        }
+        Update: {
+          bot_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          endpoint?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_activity_logs_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_tokens: {
+        Row: {
+          bot_id: string
+          created_at: string
+          id: string
+          revoked_at: string | null
+          token_hash: string
+          token_prefix: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          id?: string
+          revoked_at?: string | null
+          token_hash: string
+          token_prefix: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          id?: string
+          revoked_at?: string | null
+          token_hash?: string
+          token_prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_tokens_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bots: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          last_used_at: string | null
+          owner_id: string
+          request_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id: string
+          last_used_at?: string | null
+          owner_id: string
+          request_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          owner_id?: string
+          request_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bots_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_invites: {
         Row: {
           channel_id: string
@@ -439,6 +556,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          is_bot: boolean
           last_seen: string | null
           show_last_seen: boolean
           status: string | null
@@ -450,6 +568,7 @@ export type Database = {
           created_at?: string
           display_name: string
           id: string
+          is_bot?: boolean
           last_seen?: string | null
           show_last_seen?: boolean
           status?: string | null
@@ -461,6 +580,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          is_bot?: boolean
           last_seen?: string | null
           show_last_seen?: boolean
           status?: string | null
@@ -492,6 +612,10 @@ export type Database = {
           _name: string
         }
         Returns: string
+      }
+      increment_bot_request_count: {
+        Args: { _bot_id: string }
+        Returns: undefined
       }
       is_channel_admin: {
         Args: { _channel_id: string; _user_id: string }

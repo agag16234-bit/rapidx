@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users, Paperclip,
-  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info, Megaphone,
+  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info, Megaphone, Bot,
 } from "lucide-react";
 import { AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -210,6 +210,9 @@ function SidebarHeader({ user, tab, setTab, onChatCreated, onChannelCreated }: {
               <ChannelCreateDialog userId={userId} onCreated={onChannelCreated} />
             </>
           )}
+          <a href="/bots" title="BotFather" className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent">
+            <Bot className="h-4 w-4" />
+          </a>
           <Button size="icon" variant="ghost" onClick={() => setProfileOpen(true)} title="Profile" className="rounded-full">
             <UserCog className="h-4 w-4" />
           </Button>
