@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   MessageCircle, Send, Plus, LogOut, Search, ArrowLeft, Users, Paperclip,
-  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info, Megaphone,
+  Smile, Check, CheckCheck, Sun, Moon, UserCog, X, UsersRound, Info, Megaphone, Bot,
 } from "lucide-react";
 import { AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
