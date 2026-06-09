@@ -13,6 +13,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
+import { Route as ApiBotSendMessageRouteImport } from './routes/api/bot/sendMessage'
+import { Route as ApiBotMediaRouteImport } from './routes/api/bot/_media'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -33,16 +35,30 @@ const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
   path: '/chats',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiBotSendMessageRoute = ApiBotSendMessageRouteImport.update({
+  id: '/api/bot/sendMessage',
+  path: '/api/bot/sendMessage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBotMediaRoute = ApiBotMediaRouteImport.update({
+  id: '/api/bot/_media',
+  path: '/api/bot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chats': typeof AuthenticatedChatsRoute
+  '/api/bot': typeof ApiBotMediaRoute
+  '/api/bot/sendMessage': typeof ApiBotSendMessageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chats': typeof AuthenticatedChatsRoute
+  '/api/bot': typeof ApiBotMediaRoute
+  '/api/bot/sendMessage': typeof ApiBotSendMessageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -50,19 +66,30 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
+  '/api/bot/_media': typeof ApiBotMediaRoute
+  '/api/bot/sendMessage': typeof ApiBotSendMessageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/chats'
+  fullPaths: '/' | '/auth' | '/chats' | '/api/bot' | '/api/bot/sendMessage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/chats'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/chats'
+  to: '/' | '/auth' | '/chats' | '/api/bot' | '/api/bot/sendMessage'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/chats'
+    | '/api/bot/_media'
+    | '/api/bot/sendMessage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiBotMediaRoute: typeof ApiBotMediaRoute
+  ApiBotSendMessageRoute: typeof ApiBotSendMessageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,6 +122,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/bot/sendMessage': {
+      id: '/api/bot/sendMessage'
+      path: '/api/bot/sendMessage'
+      fullPath: '/api/bot/sendMessage'
+      preLoaderRoute: typeof ApiBotSendMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/bot/_media': {
+      id: '/api/bot/_media'
+      path: '/api/bot'
+      fullPath: '/api/bot'
+      preLoaderRoute: typeof ApiBotMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -113,7 +154,19 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiBotMediaRoute: ApiBotMediaRoute,
+  ApiBotSendMessageRoute: ApiBotSendMessageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
