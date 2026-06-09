@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
+import { Route as AuthenticatedBotsRouteImport } from './routes/_authenticated/bots'
 import { Route as ApiBotSendVoiceRouteImport } from './routes/api/bot/sendVoice'
 import { Route as ApiBotSendPhotoRouteImport } from './routes/api/bot/sendPhoto'
 import { Route as ApiBotSendMessageRouteImport } from './routes/api/bot/sendMessage'
@@ -21,6 +22,7 @@ import { Route as ApiBotGetUserRouteImport } from './routes/api/bot/getUser'
 import { Route as ApiBotGetUpdatesRouteImport } from './routes/api/bot/getUpdates'
 import { Route as ApiBotGetMeRouteImport } from './routes/api/bot/getMe'
 import { Route as ApiBotGetChatRouteImport } from './routes/api/bot/getChat'
+import { Route as AuthenticatedBotsBotIdRouteImport } from './routes/_authenticated/bots.$botId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -39,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
   id: '/chats',
   path: '/chats',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedBotsRoute = AuthenticatedBotsRouteImport.update({
+  id: '/bots',
+  path: '/bots',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiBotSendVoiceRoute = ApiBotSendVoiceRouteImport.update({
@@ -81,11 +88,18 @@ const ApiBotGetChatRoute = ApiBotGetChatRouteImport.update({
   path: '/api/bot/getChat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedBotsBotIdRoute = AuthenticatedBotsBotIdRouteImport.update({
+  id: '/$botId',
+  path: '/$botId',
+  getParentRoute: () => AuthenticatedBotsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/bots': typeof AuthenticatedBotsRouteWithChildren
   '/chats': typeof AuthenticatedChatsRoute
+  '/bots/$botId': typeof AuthenticatedBotsBotIdRoute
   '/api/bot/getChat': typeof ApiBotGetChatRoute
   '/api/bot/getMe': typeof ApiBotGetMeRoute
   '/api/bot/getUpdates': typeof ApiBotGetUpdatesRoute
@@ -98,7 +112,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/bots': typeof AuthenticatedBotsRouteWithChildren
   '/chats': typeof AuthenticatedChatsRoute
+  '/bots/$botId': typeof AuthenticatedBotsBotIdRoute
   '/api/bot/getChat': typeof ApiBotGetChatRoute
   '/api/bot/getMe': typeof ApiBotGetMeRoute
   '/api/bot/getUpdates': typeof ApiBotGetUpdatesRoute
@@ -113,7 +129,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/bots': typeof AuthenticatedBotsRouteWithChildren
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
+  '/_authenticated/bots/$botId': typeof AuthenticatedBotsBotIdRoute
   '/api/bot/getChat': typeof ApiBotGetChatRoute
   '/api/bot/getMe': typeof ApiBotGetMeRoute
   '/api/bot/getUpdates': typeof ApiBotGetUpdatesRoute
@@ -128,7 +146,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/bots'
     | '/chats'
+    | '/bots/$botId'
     | '/api/bot/getChat'
     | '/api/bot/getMe'
     | '/api/bot/getUpdates'
@@ -141,7 +161,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/bots'
     | '/chats'
+    | '/bots/$botId'
     | '/api/bot/getChat'
     | '/api/bot/getMe'
     | '/api/bot/getUpdates'
@@ -155,7 +177,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/bots'
     | '/_authenticated/chats'
+    | '/_authenticated/bots/$botId'
     | '/api/bot/getChat'
     | '/api/bot/getMe'
     | '/api/bot/getUpdates'
@@ -208,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/chats'
       fullPath: '/chats'
       preLoaderRoute: typeof AuthenticatedChatsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/bots': {
+      id: '/_authenticated/bots'
+      path: '/bots'
+      fullPath: '/bots'
+      preLoaderRoute: typeof AuthenticatedBotsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/bot/sendVoice': {
@@ -266,14 +297,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBotGetChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/bots/$botId': {
+      id: '/_authenticated/bots/$botId'
+      path: '/$botId'
+      fullPath: '/bots/$botId'
+      preLoaderRoute: typeof AuthenticatedBotsBotIdRouteImport
+      parentRoute: typeof AuthenticatedBotsRoute
+    }
   }
 }
 
+interface AuthenticatedBotsRouteChildren {
+  AuthenticatedBotsBotIdRoute: typeof AuthenticatedBotsBotIdRoute
+}
+
+const AuthenticatedBotsRouteChildren: AuthenticatedBotsRouteChildren = {
+  AuthenticatedBotsBotIdRoute: AuthenticatedBotsBotIdRoute,
+}
+
+const AuthenticatedBotsRouteWithChildren =
+  AuthenticatedBotsRoute._addFileChildren(AuthenticatedBotsRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBotsRoute: typeof AuthenticatedBotsRouteWithChildren
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedBotsRoute: AuthenticatedBotsRouteWithChildren,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
 }
 
