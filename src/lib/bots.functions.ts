@@ -100,8 +100,8 @@ export const revokeBotToken = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: tok } = await supabaseAdmin.from("bot_tokens")
       .select("id,bot_id,bots!inner(owner_id)").eq("id", data.token_id).maybeSingle();
-    // @ts-expect-error nested
-    if (!tok || tok.bots.owner_id !== context.userId) throw new Error("Not authorized");
+    const tokRow = tok as (typeof tok & { bots: { owner_id: string } | null }) | null;
+    if (!tokRow || tokRow.bots?.owner_id !== context.userId) throw new Error("Not authorized");
     await supabaseAdmin.from("bot_tokens").update({ revoked_at: new Date().toISOString() }).eq("id", data.token_id);
     return { ok: true };
   });
